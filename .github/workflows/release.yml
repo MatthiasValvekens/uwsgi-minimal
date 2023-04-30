@@ -10,7 +10,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id_token: write
+      id-token: write
     strategy:
       matrix:
         #python-version: ["3.8", "3.9", "3.10", "3.11"]
@@ -45,7 +45,6 @@ jobs:
           tags: |
             type=ref,event=tag
             type=sha,format=long            
-            type=raw,value=latest,enable={{is_default_branch}}
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
