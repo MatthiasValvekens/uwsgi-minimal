@@ -7,14 +7,14 @@ on:
 jobs:
   publish-images:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     permissions:
       contents: read
       packages: write
       id-token: write
     strategy:
       matrix:
-        #python-version: ["3.8", "3.9", "3.10", "3.11"]
-        python-version: ["3.10"]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -24,11 +24,11 @@ jobs:
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      #- name: Login to Docker Hub
-      #  uses: docker/login-action@v2
-      #  with:
-      #    username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #    password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
@@ -40,12 +40,14 @@ jobs:
         with:
           images: ghcr.io/MatthiasValvekens/uwsgi-minimal
           flavor: |
-            latest=auto
+            latest=false
             suffix=-py${{ matrix.python-version }},onlatest=${{ matrix.python-version != '3.11' }}
           tags: |
-            type=raw,value=unstable,enable={{is_default_branch}}
-            type=ref,event=tag
-            type=sha,format=long            
+            type=sha,format=long,priority=200
+            type=ref,event=tag,priority=800
+            type=raw,value=unstable,enable={{is_default_branch}},priority=400
+            type=raw,value=latest,enable=${{ matrix.python-version != '3.11' }},event=tag,priority=900
+            type=raw,value=latest,enable=${{ matrix.python-version == '3.11' }},suffix=,event=tag,priority=1000
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
