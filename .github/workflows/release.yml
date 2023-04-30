@@ -1,4 +1,4 @@
-name: ci
+name: Publish release
 on:
   workflow_dispatch:
     inputs:
@@ -39,9 +39,13 @@ jobs:
         uses: docker/metadata-action@v3.6.0
         with:
           images: ghcr.io/MatthiasValvekens/uwsgi-minimal
+          flavor: |
+            latest=auto
+            suffix=-py${{ matrix.python-version }},onlatest=${{ matrix.python-version != '3.11' }}
           tags: |
+            type=ref,event=tag
             type=sha,format=long            
-            type=raw,latest-py${{ matrix.python-version }}
+            type=raw,value=latest,enable={{is_default_branch}}
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
