@@ -47,7 +47,7 @@ jobs:
             type=ref,event=tag,priority=800
             type=raw,value=unstable,enable={{is_default_branch}},priority=400
             type=raw,value=latest,event=tag,priority=900
-            type=raw,value=latest,enable=${{ matrix.python-version == '3.11' }},suffix=,event=tag,priority=1000
+            type=raw,value=latest,enable=${{ matrix.python-version == '3.11' && startsWith(github.ref, 'refs/tags/') }},suffix=,event=tag,priority=1000
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
