@@ -38,13 +38,16 @@ jobs:
       - id: docker_meta
         uses: docker/metadata-action@v4.4.0
         with:
-          images: ghcr.io/MatthiasValvekens/uwsgi-minimal
+          images: |
+            mfjval/uwsgi-minimal
+            ghcr.io/MatthiasValvekens/uwsgi-minimal
           flavor: |
             latest=false
             suffix=-py${{ matrix.python-version }},onlatest=${{ matrix.python-version != '3.11' }}
           tags: |
             type=sha,format=long,priority=200
-            type=ref,event=tag,priority=800
+            type=semver,pattern={{version}},event=tag,priority=800
+            type=semver,pattern={{major}}.{{minor}},event=tag,priority=700
             type=raw,value=unstable,enable={{is_default_branch}},priority=400
             type=raw,value=latest,event=tag,priority=900
             type=raw,value=latest,enable=${{ matrix.python-version == '3.11' && startsWith(github.ref, 'refs/tags/') }},suffix=,event=tag,priority=1000
