@@ -48,8 +48,8 @@ jobs:
             type=semver,pattern={{version}},event=tag,priority=800
             type=semver,pattern={{major}}.{{minor}},event=tag,priority=700
             type=raw,value=unstable,enable={{is_default_branch}},priority=400
-            type=semver,value=latest,priority=900
-            type=semver,value=latest,enable=${{ matrix.python-version == '3.11' }},suffix=,priority=1000
+            type=semver,value=latest,priority=900,pattern=raw
+            type=semver,value=latest,enable=${{ matrix.python-version == '3.11' }},suffix=,priority=1000,pattern=raw
       - name: Build and push
         id: build-push
         uses: docker/build-push-action@v4
