@@ -51,6 +51,7 @@ jobs:
             type=semver,value=latest,priority=900
             type=semver,value=latest,enable=${{ matrix.python-version == '3.11' }},suffix=,priority=1000
       - name: Build and push
+        id: build-push
         uses: docker/build-push-action@v4
         with:
           context: src
@@ -59,8 +60,5 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
       - name: Sign images using GHA OIDC identity
-        run: cosign sign --yes ${TAGS}
-        env:
-          # TODO figure out how to compute the signatures based on the actual
-          # container fingerprints instead (?)
-          TAGS: ${{ steps.docker_meta.outputs.tags }}
+        # this digest is for the manifest that combines all the platform images
+        run: cosign sign --yes ${{ steps.build-push.outputs.digest }}
