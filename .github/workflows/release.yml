@@ -1,13 +1,40 @@
 name: Publish release
 on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        type: environment
+  push:
+    tags: ["v*"]
+    branches: [ master ]
+  workflow_dispatch: {}
 jobs:
+  generate-metadata:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.docker-meta.outputs.tags }}
+      labels: ${{ steps.docker-meta.outputs.labels }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - id: docker-meta
+        uses: docker/metadata-action@v4.4.0
+        with:
+          images: |
+            name=mfjval/uwsgi-minimal,enable=${{ startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master' }}
+            name=ghcr.io/MatthiasValvekens/uwsgi-minimal
+          flavor: |
+            latest=auto
+            suffix=-py${{ matrix.python-version }},onlatest=${{ matrix.python-version != '3.11' }}
+          tags: |
+            type=ref,event=branch,enable=${{ !startsWith(github.ref, 'refs/tags/v') && github.ref != 'refs/heads/master' }}
+            type=ref,event=pr
+            type=ref,event=tag
+            type=semver,pattern={{version}},event=tag
+            type=semver,pattern={{major}}.{{minor}},event=tag
+            type=raw,value=unstable,enable=${{ github.ref == 'refs/heads/master' }},priority=400
+            type=match,pattern=v(.*),value=latest,priority=900
+            type=match,pattern=v(.*),value=latest,enable=${{ matrix.python-version == '3.11' }},suffix=,priority=1000
   publish-images:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    environment: release
+    needs: [generate-metadata]
     permissions:
       contents: read
       packages: write
@@ -35,21 +62,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - id: docker_meta
-        uses: docker/metadata-action@v4.4.0
-        with:
-          images: |
-            mfjval/uwsgi-minimal
-            ghcr.io/MatthiasValvekens/uwsgi-minimal
-          flavor: |
-            latest=false
-            suffix=-py${{ matrix.python-version }},onlatest=${{ matrix.python-version != '3.11' }}
-          tags: |
-            type=semver,pattern={{version}},event=tag,priority=800
-            type=semver,pattern={{major}}.{{minor}},event=tag,priority=700
-            type=raw,value=unstable,enable={{is_default_branch}},priority=400
-            type=match,pattern=v(.*),value=latest,priority=900
-            type=match,pattern=v(.*),value=latest,enable=${{ matrix.python-version == '3.11' }},suffix=,priority=1000
       - name: Build and push
         id: build-push
         uses: docker/build-push-action@v4
@@ -57,8 +69,23 @@ jobs:
           context: src
           platforms: linux/amd64,linux/arm/v7,linux/arm64
           push: true
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          labels: ${{ steps.docker_meta.outputs.labels }}
+          tags: ${{ needs.generate-metadata.outputs.tags }}
+          labels: ${{ needs.generate-metadata.outputs.labels }}
+      - name: Generate cosign arguments
+        id: cosign-args
+        # TODO make this more DRY
+        run: |
+          if [[ $GITHUB_REF_TYPE == 'tag' ]]; then
+            images_arr = (ghcr.io/MatthiasValvekens/uwsgi-minimal mfjval/uwsgi-minimal)
+          else
+            images_arr = (ghcr.io/MatthiasValvekens/uwsgi-minimal)
+          fi
+          images_arr = ($IMAGES)
+          images_suffixed = "${images_arr[@]/%/@$DIGEST}"
+          echo "to-sign=$images_suffixed" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+        env:
+          # this digest is for the manifest that combines all the platform images
+          DIGEST: ${{ steps.build-push.outputs.digest }}
       - name: Sign images using GHA OIDC identity
-        # this digest is for the manifest that combines all the platform images
-        run: cosign sign --yes ${{ steps.build-push.outputs.digest }}
+        run: cosign sign --yes ${{ steps.cosign-args.outputs.to-sign }}
