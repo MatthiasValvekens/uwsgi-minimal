@@ -98,6 +98,8 @@ jobs:
           push: true
           tags: ${{ steps.read-params.outputs.tags }}
           labels: ${{ steps.read-params.outputs.labels }}
+          build-args: |
+            TARGET_PYTHON_VERSION=${{ matrix.python-version }}
       - name: Generate cosign arguments
         id: cosign-args
         # TODO make this more DRY
