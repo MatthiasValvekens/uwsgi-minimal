@@ -104,7 +104,7 @@ jobs:
         run: |
           echo -n "to-sign=" >> "$GITHUB_OUTPUT"
           echo -n "ghcr.io/matthiasvalvekens/uwsgi-minimal@$DIGEST" >> "$GITHUB_OUTPUT"
-          if [[ $GITHUB_REF_TYPE == 'tag' ]]; then
+          if [[ $GITHUB_REF_TYPE == 'tag' || $GITHUB_REF == 'refs/heads/master' ]]; then
             echo -n " mfjval/uwsgi-minimal@$DIGEST" >> "$GITHUB_OUTPUT"
           fi
           echo "" >> "$GITHUB_OUTPUT"
