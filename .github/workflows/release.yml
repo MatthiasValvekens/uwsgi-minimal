@@ -102,14 +102,12 @@ jobs:
         id: cosign-args
         # TODO make this more DRY
         run: |
+          echo -n "to-sign=" >> "$GITHUB_OUTPUT"
+          echo -n "ghcr.io/MatthiasValvekens/uwsgi-minimal@$DIGEST" >> "$GITHUB_OUTPUT"
           if [[ $GITHUB_REF_TYPE == 'tag' ]]; then
-            images_arr = (ghcr.io/MatthiasValvekens/uwsgi-minimal mfjval/uwsgi-minimal)
-          else
-            images_arr = (ghcr.io/MatthiasValvekens/uwsgi-minimal)
+            echo -n " mfjval/uwsgi-minimal@$DIGEST" >> "$GITHUB_OUTPUT"
           fi
-          images_arr = ($IMAGES)
-          images_suffixed = "${images_arr[@]/%/@$DIGEST}"
-          echo "to-sign=$images_suffixed" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
         env:
           # this digest is for the manifest that combines all the platform images
