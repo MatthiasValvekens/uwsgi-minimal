@@ -45,12 +45,11 @@ jobs:
             latest=false
             suffix=-py${{ matrix.python-version }},onlatest=${{ matrix.python-version != '3.11' }}
           tags: |
-            type=sha,format=long,priority=200
             type=semver,pattern={{version}},event=tag,priority=800
             type=semver,pattern={{major}}.{{minor}},event=tag,priority=700
             type=raw,value=unstable,enable={{is_default_branch}},priority=400
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }},priority=900
-            type=raw,value=latest,enable=${{ matrix.python-version == '3.11' && startsWith(github.ref, 'refs/tags/') }},suffix=,priority=1000
+            type=semver,value=latest,priority=900
+            type=semver,value=latest,enable=${{ matrix.python-version == '3.11' }},suffix=,priority=1000
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
@@ -62,4 +61,6 @@ jobs:
       - name: Sign images using GHA OIDC identity
         run: cosign sign --yes ${TAGS}
         env:
+          # TODO figure out how to compute the signatures based on the actual
+          # container fingerprints instead (?)
           TAGS: ${{ steps.docker_meta.outputs.tags }}
