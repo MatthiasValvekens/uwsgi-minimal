@@ -7,9 +7,9 @@ on:
 jobs:
   generate-metadata:
     runs-on: ubuntu-latest
-    outputs:
-      tags: ${{ steps.docker-meta.outputs.tags }}
-      labels: ${{ steps.docker-meta.outputs.labels }}
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -29,8 +29,19 @@ jobs:
             type=semver,pattern={{version}},event=tag
             type=semver,pattern={{major}}.{{minor}},event=tag
             type=raw,value=unstable,enable=${{ github.ref == 'refs/heads/master' }},priority=400
-            type=match,pattern=v(.*),value=latest,priority=900
-            type=match,pattern=v(.*),value=latest,enable=${{ matrix.python-version == '3.11' }},suffix=,priority=1000
+      - name: Dump image matrix parameters
+        # TODO get rid of this hack when https://github.com/actions/runner/pull/2477
+        # is supported end-to-end
+        run: |
+          cat <<< "$DOCKER_METADATA_OUTPUT_TAGS" > tags.txt
+          cat <<< "$DOCKER_METADATA_OUTPUT_LABELS" > labels.txt
+      - name: Upload image matrix parameters
+        uses: actions/upload-artifact@v3
+        with:
+          name: image-params-${{ matrix.python-version }}
+          path: |
+            tags.txt
+            labels.txt
   publish-images:
     runs-on: ubuntu-latest
     environment: release
@@ -45,6 +56,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - name: Download parameters
+        uses: actions/download-artifact@v3
+        with:
+          name: image-params-${{ matrix.python-version }}
+          path: params/
+      - name: Read parameters
+        id: read-params
+        run: |
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "tags<<$EOF" >> "$GITHUB_OUTPUT"
+          cat params/tags.txt >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
+          echo "labels<<$EOF" >> "$GITHUB_OUTPUT"
+          cat params/labels.txt >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.0.3
       - name: Set up QEMU
@@ -69,8 +95,8 @@ jobs:
           context: src
           platforms: linux/amd64,linux/arm/v7,linux/arm64
           push: true
-          tags: ${{ needs.generate-metadata.outputs.tags }}
-          labels: ${{ needs.generate-metadata.outputs.labels }}
+          tags: ${{ steps.read-params.outputs.tags }}
+          labels: ${{ steps.read-params.outputs.labels }}
       - name: Generate cosign arguments
         id: cosign-args
         # TODO make this more DRY
